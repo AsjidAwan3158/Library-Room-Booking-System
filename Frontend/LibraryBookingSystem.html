@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Library Room Booking System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        --primary-color: #1968b3;
+        --light-white: #f8f9fa;
+      }
+
+      .primary-bg {
+        background-color: var(--primary-color);
+      }
+
+      .light-white-bg {
+        background-color: var(--light-white);
+      }
+
+      .calendar-day {
+        min-height: 40px;
+        transition: all 0.3s ease;
+      }
+
+      .calendar-day:not(.disabled):hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .time-slot {
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .time-slot:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      .slot-green {
+        background-color: #4ade80;
+        color: #166534;
+      }
+
+      .slot-yellow {
+        background-color: #facc15;
+        color: #713f12;
+      }
+
+      .slot-red {
+        background-color: #ef4444;
+        color: white;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Modal z-index hierarchy - nested modals appear on top */
+      #notificationModal {
+        z-index: 5000;
+      }
+
+      #notificationModal.active {
+        z-index: 5000;
+      }
+
+      #bookingModal {
+        z-index: 2000;
+      }
+
+      /* Add dynamic z-index for notifications when other modals are open */
+      #notificationModal.notification-on-top {
+        z-index: 10000 !important;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateY(-50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .modal-content {
+        animation: slideIn 0.3s ease;
+      }
+
+      .disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      .available-day {
+        background-color: #e0f2fe;
+        color: var(--primary-color);
+        font-weight: 600;
+      }
+
+      .weekend-day {
+        background-color: #fee2e2;
+        color: #991b1b;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .queue-indicator {
+        animation: pulse 2s infinite;
+      }
+    </style>
+  </head>
+  <body class="light-white-bg min-h-screen">
+    <!-- Header -->
+    <header class="primary-bg text-white p-6 shadow-lg">
+      <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-3xl font-bold">📚 Library Room Booking System</h1>
+            <p class="mt-2 text-blue-100">
+              Reserve discussion rooms for your study sessions
+            </p>
+          </div>
+          <a
+            href="LibraryBookingAdmin.html"
+            class="bg-white text-blue-600 px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold shadow-lg"
+          >
+            🔧 Admin Panel
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto p-6">
+      <!-- Room Selection -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2
+          class="text-2xl font-semibold mb-4"
+          style="color: var(--primary-color)"
+        >
+          Select a Room
+        </h2>
+        <div class="grid md:grid-cols-2 gap-4">
+          <button
+            onclick="selectRoom(1)"
+            id="room1"
+            class="p-6 border-2 border-gray-300 rounded-lg hover:border-blue-500 transition-all hover:shadow-lg"
+          >
+            <div class="text-lg font-semibold">🏢 Discussion Room 1</div>
+            <p class="text-gray-600 mt-2">
+              Capacity: 6 people | Equipment: Whiteboard, Projector
+            </p>
+          </button>
+          <button
+            onclick="selectRoom(2)"
+            id="room2"
+            class="p-6 border-2 border-gray-300 rounded-lg hover:border-blue-500 transition-all hover:shadow-lg"
+          >
+            <div class="text-lg font-semibold">🏢 Discussion Room 2</div>
+            <p class="text-gray-600 mt-2">
+              Capacity: 6 people | Equipment: Smart TV, Whiteboard
+            </p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Calendar Section -->
+      <div
+        id="calendarSection"
+        class="bg-white rounded-lg shadow-md p-6 mb-6"
+        style="display: none"
+      >
+        <h2
+          class="text-2xl font-semibold mb-4"
+          style="color: var(--primary-color)"
+        >
+          📅 Select a Date
+        </h2>
+        <div class="mb-4">
+          <span
+            class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold"
+          >
+            Selected Room: <span id="selectedRoomText"></span>
+          </span>
+          <span
+            class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold ml-2"
+          >
+            💡 Next 3 working days are available for booking
+          </span>
+        </div>
+        <div class="mb-4 flex gap-2">
+          <button
+            onclick="previousMonth()"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors font-semibold"
+          >
+            ← Previous Month
+          </button>
+          <button
+            onclick="nextMonth()"
+            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors font-semibold"
+          >
+            Next Month →
+          </button>
+        </div>
+        <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p class="text-sm text-amber-800">
+            <strong>ℹ️ Booking Policy:</strong> You can book rooms for the next
+            3 working days only. Weekends (Saturday & Sunday) are not available
+            for booking.
+          </p>
+        </div>
+        <div id="calendar" class="grid grid-cols-7 gap-2"></div>
+      </div>
+
+      <!-- Time Slots Section -->
+      <div
+        id="timeSlotsSection"
+        class="bg-white rounded-lg shadow-md p-6"
+        style="display: none"
+      >
+        <h2
+          class="text-2xl font-semibold mb-4"
+          style="color: var(--primary-color)"
+        >
+          ⏰ Select Time Slot
+        </h2>
+        <div class="mb-4 flex flex-wrap gap-2">
+          <span
+            class="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold"
+          >
+            Room: <span id="slotRoomText"></span>
+          </span>
+          <span
+            class="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold"
+          >
+            Date: <span id="selectedDateText"></span>
+          </span>
+        </div>
+
+        <!-- User Status Banner -->
+        <div
+          id="userStatusBanner"
+          class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+          style="display: none"
+        >
+          <div class="flex items-center gap-2">
+            <div class="text-2xl">👤</div>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-blue-800">
+                Logged in as: <span id="currentUserName"></span> (ID:
+                <span id="currentUserId"></span>)
+              </p>
+              <p id="userBookingInfo" class="text-sm text-blue-700 mt-1"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded slot-green"></div>
+            <span class="text-sm">Available</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded slot-yellow"></div>
+            <span class="text-sm">Booked (Pending) - Click to join queue</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded slot-red"></div>
+            <span class="text-sm">Confirmed (Locked)</span>
+          </div>
+        </div>
+
+        <div id="timeSlots" class="grid md:grid-cols-4 gap-4"></div>
+      </div>
+    </div>
+
+    <!-- Success/Notification Modal -->
+    <div id="notificationModal" class="modal">
+      <div
+        class="modal-content bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
+      >
+        <div id="notificationHeader" class="p-6 rounded-t-lg">
+          <!-- Dynamic header content -->
+        </div>
+        <div id="notificationBody" class="p-6">
+          <!-- Dynamic body content -->
+        </div>
+        <div class="px-6 pb-6">
+          <button
+            onclick="closeNotificationModal()"
+            class="w-full py-3 rounded-lg font-semibold transition-colors"
+            id="notificationButton"
+          >
+            Got it!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal">
+      <div
+        class="modal-content bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+      >
+        <div class="primary-bg text-white p-6 rounded-t-lg">
+          <h3 class="text-2xl font-bold">📝 Book Time Slot</h3>
+          <p class="mt-1 text-blue-100">
+            Fill in your details to reserve this slot
+          </p>
+        </div>
+
+        <form id="bookingForm" action="javascript:void(0);"  class="p-6">
+          <!-- Queue Warning for Yellow Slots -->
+          <div
+            id="queueWarning"
+            class="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg"
+            style="display: none"
+          >
+            <p class="text-sm font-semibold text-yellow-800 mb-2">
+              ⚠️ This slot is already booked but not confirmed!
+            </p>
+            <p class="text-sm text-gray-700">
+              You're being added to the queue. If the current applicant doesn't
+              arrive within 10 minutes of the slot time, you'll be notified and
+              can claim this slot.
+            </p>
+            <p class="text-sm text-gray-700 mt-2">
+              <strong>Queue Position: <span id="queuePosition">2</span></strong>
+            </p>
+          </div>
+
+          <div class="mb-4 p-4 bg-blue-50 rounded-lg">
+            <p class="text-sm font-semibold text-blue-800">Booking Details:</p>
+            <p class="text-sm text-gray-700">
+              Room: <span id="modalRoom"></span>
+            </p>
+            <p class="text-sm text-gray-700">
+              Date: <span id="modalDate"></span>
+            </p>
+            <p class="text-sm text-gray-700">
+              Time: <span id="modalTime"></span>
+            </p>
+            <p class="text-sm text-gray-700">
+              Status: <span id="modalStatus"></span>
+            </p>
+          </div>
+
+          <!-- Applicant Details -->
+          <div class="mb-6">
+            <h4
+              class="text-lg font-semibold mb-3"
+              style="color: var(--primary-color)"
+            >
+              Applicant Information
+            </h4>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Full Name *</label
+                >
+                <input
+                  type="text"
+                  required
+                  name="applicantName"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Student/Staff ID *</label
+                >
+                <input
+                  type="text"
+                  required
+                  name="applicantId"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Email *</label
+                >
+                <input
+                  type="email"
+                  required
+                  name="applicantEmail"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Phone *</label
+                >
+                <input
+                  type="tel"
+                  required
+                  name="applicantPhone"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Group Members -->
+          <div class="mb-6">
+            <div class="flex justify-between items-center mb-3">
+              <h4
+                class="text-lg font-semibold"
+                style="color: var(--primary-color)"
+              >
+                Group Members (3-6 members)
+              </h4>
+              <button
+                type="button"
+                onclick="addGroupMember()"
+                class="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition-colors"
+              >
+                + Add Member
+              </button>
+            </div>
+            <div id="groupMembers" class="space-y-3"></div>
+            <p
+              id="memberError"
+              class="text-red-500 text-sm mt-2"
+              style="display: none"
+            >
+              Please add at least 3 group members (maximum 6)
+            </p>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex gap-4">
+            <button
+              type="button"
+              id="submitBtn"
+              class="flex-1 primary-bg text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+            >
+              Confirm Booking
+            </button>
+            <button
+              type="button"
+              onclick="closeModal()"
+              class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors font-semibold"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Global variables
+      let selectedRoom = null;
+      let selectedDate = null;
+      let selectedTime = null;
+      let groupMemberCount = 0;
+      let currentSlotStatus = null;
+      let currentMonth = null;
+      let currentYear = null;
+      let currentNotificationType = null;
+      const maxGroupMembers = 6;
+      const minGroupMembers = 3;
+
+      // ================================
+      // PAGE REFRESH DEBUGGING
+      // ================================
+      console.log("🔍 Page load/reload tracking initialized");
+
+      // Track page unload events
+      window.addEventListener("beforeunload", function (e) {
+        console.log("⚠️ PAGE REFRESH DETECTED: beforeunload event fired");
+        console.log("Stack trace:", new Error().stack);
+         console.trace("🚨 PAGE RELOAD TRIGGERED");
+      });
+
+      // Track visibility changes (can indicate refresh)
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") {
+          console.log("📴 Page became hidden");
+        } else if (document.visibilityState === "visible") {
+          console.log("📱 Page became visible (possibly refreshed)");
+          console.log("Stack trace:", new Error().stack);
+        }
+      });
+
+      // Track location changes
+      window.addEventListener("locationchange", function () {
+        console.log("🌐 Location changed (possibly redirected/refreshed)");
+        console.log("Stack trace:", new Error().stack);
+      });
+
+      // Track all clicks
+      document.addEventListener(
+        "click",
+        function (e) {
+          console.log("🖱️ Click detected:", {
+            target: e.target.tagName,
+            id: e.target.id,
+            className: e.target.className,
+            type: e.target.type,
+            onclick: e.target.onclick ? "has onclick" : "no onclick",
+          });
+        },
+        true
+      ); // Use capture phase to catch all clicks
+
+      // ================================
+      // END PAGE REFRESH DEBUGGING
+      // ================================
+
+      // Time slots
+      const timeSlots = [
+        "09:00 AM - 10:00 AM",
+        "10:00 AM - 11:00 AM",
+        "11:00 AM - 12:00 PM",
+        "12:00 PM - 01:00 PM",
+        "01:00 PM - 02:00 PM",
+        "02:00 PM - 03:00 PM",
+        "03:00 PM - 04:00 PM",
+        "04:00 PM - 05:00 PM",
+      ];
+
+      function selectRoom(roomNumber) {
+        selectedRoom = roomNumber;
+
+        // Update UI
+        document
+          .getElementById("room1")
+          .classList.toggle("border-blue-500", roomNumber === 1);
+        document
+          .getElementById("room1")
+          .classList.toggle("bg-blue-50", roomNumber === 1);
+        document
+          .getElementById("room2")
+          .classList.toggle("border-blue-500", roomNumber === 2);
+        document
+          .getElementById("room2")
+          .classList.toggle("bg-blue-50", roomNumber === 2);
+
+        document.getElementById(
+          "selectedRoomText"
+        ).textContent = `Discussion Room ${roomNumber}`;
+        document.getElementById(
+          "slotRoomText"
+        ).textContent = `Discussion Room ${roomNumber}`;
+
+        // Initialize current month/year to current date
+        const now = new Date();
+        currentMonth = now.getMonth();
+        currentYear = now.getFullYear();
+
+        // Show calendar
+        document.getElementById("calendarSection").style.display = "block";
+        generateCalendar();
+
+        // Hide time slots until date is selected
+        document.getElementById("timeSlotsSection").style.display = "none";
+      }
+
+      function getNext3WorkingDays() {
+        const workingDays = [];
+        const today = new Date();
+        let currentDate = new Date(today);
+
+        while (workingDays.length < 3) {
+          // Skip weekends (0 = Sunday, 6 = Saturday)
+          if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+            workingDays.push(new Date(currentDate));
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        return workingDays;
+      }
+
+      function generateCalendar() {
+        const calendar = document.getElementById("calendar");
+        calendar.innerHTML = "";
+
+        // Add day headers
+        const dayHeaders = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        dayHeaders.forEach((day) => {
+          const header = document.createElement("div");
+          header.className = "text-center font-semibold text-gray-600 p-2";
+          header.textContent = day;
+          calendar.appendChild(header);
+        });
+
+        // Get the next 3 working days from today
+        const next3WorkingDays = getNext3WorkingDays();
+        console.log(
+          "User - Next 3 working days:",
+          next3WorkingDays.map((d) => d.toDateString())
+        );
+
+        // Create a set of available dates (next 3 working days)
+        const availableDatesSet = new Set();
+        next3WorkingDays.forEach((date) => {
+          const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+          availableDatesSet.add(key);
+        });
+
+        // Get calendar details for current month/year
+        const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+        const daysInMonth = new Date(
+          currentYear,
+          currentMonth + 1,
+          0
+        ).getDate();
+
+        // Add empty cells for days before month starts
+        for (let i = 0; i < firstDay; i++) {
+          const emptyCell = document.createElement("div");
+          calendar.appendChild(emptyCell);
+        }
+
+        // Add days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dayCell = document.createElement("button");
+          const dayDate = new Date(currentYear, currentMonth, day);
+          const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
+          const dateKey = `${currentYear}-${currentMonth}-${day}`;
+          const isAvailable = availableDatesSet.has(dateKey);
+
+          dayCell.className = "calendar-day p-3 rounded-lg text-center border ";
+
+          if (isAvailable) {
+            // Highlight next 3 working days
+            dayCell.className +=
+              "available-day hover:bg-blue-200 cursor-pointer border-blue-300";
+            dayCell.onclick = () => selectDate(day, currentYear, currentMonth);
+            dayCell.title = "Available for booking";
+            dayCell.textContent = day;
+          } else if (isWeekend) {
+            // Weekend - disabled
+            dayCell.className += "weekend-day border-red-200";
+            dayCell.disabled = true;
+            dayCell.title = "Weekend - No bookings";
+            dayCell.textContent = day;
+          } else {
+            // Other working days - clickable but not in next 3
+            dayCell.className +=
+              "bg-white hover:bg-blue-50 cursor-pointer border-gray-300";
+            dayCell.onclick = () => selectDate(day, currentYear, currentMonth);
+            dayCell.title = "Available for booking";
+            dayCell.textContent = day;
+          }
+
+          calendar.appendChild(dayCell);
+        }
+      }
+
+      function previousMonth() {
+        currentMonth--;
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
+        }
+        generateCalendar();
+      }
+
+      function nextMonth() {
+        currentMonth++;
+        if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        generateCalendar();
+      }
+
+      function selectDate(day, year, month) {
+        // Use the provided year, month, and day to create the date
+        selectedDate = new Date(year, month, day);
+        console.log("User - Selected date:", selectedDate.toDateString());
+        console.log(
+          "User - Date ISO string:",
+          selectedDate.toISOString().split("T")[0]
+        );
+
+        document.getElementById("selectedDateText").textContent =
+          selectedDate.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+
+        // Check for logged-in user and show status banner
+        const currentUserId = localStorage.getItem("currentUserId");
+        const currentUserName = localStorage.getItem("currentUserName");
+
+        if (currentUserId) {
+          document.getElementById("currentUserId").textContent = currentUserId;
+          document.getElementById("currentUserName").textContent =
+            currentUserName;
+          document.getElementById("userStatusBanner").style.display = "block";
+
+          // Check if user has bookings on this date
+          fetch(
+            `http://localhost:5000/api/bookings/check-user?studentId=${currentUserId}&date=${
+              selectedDate.toISOString().split("T")[0]
+            }`
+          )
+            .then((response) => response.json())
+            .then((data) => {
+              const infoElement = document.getElementById("userBookingInfo");
+              if (
+                data.success &&
+                data.hasBookings &&
+                data.bookings.length > 0
+              ) {
+                const booking = data.bookings[0];
+                const timeSlot = `${booking.start_time} - ${booking.end_time}`;
+                infoElement.innerHTML = `✅ You have a booking: <strong>${timeSlot}</strong> (Room ${booking.room_id}) - Status: ${booking.status}`;
+              } else {
+                infoElement.textContent =
+                  "You have no bookings on this date yet.";
+              }
+            })
+            .catch((error) => {
+              console.error("Error checking user bookings:", error);
+            });
+        } else {
+          document.getElementById("userStatusBanner").style.display = "none";
+        }
+
+        // Show time slots
+        document.getElementById("timeSlotsSection").style.display = "block";
+        generateTimeSlots();
+
+        // Scroll to time slots
+        document
+          .getElementById("timeSlotsSection")
+          .scrollIntoView({ behavior: "smooth" });
+      }
+
+      async function generateTimeSlots() {
+        const slotsContainer = document.getElementById("timeSlots");
+        slotsContainer.innerHTML = "";
+
+        // Create a map to store booking status for each time slot
+        const slotStatuses = {};
+        const slotQueueCounts = {};
+
+        console.log(
+          "Fetching bookings for date:",
+          selectedDate.toISOString().split("T")[0],
+          "room:",
+          selectedRoom
+        );
+
+        try {
+          // Fetch bookings from database
+          const response = await fetch(
+            `http://localhost:5000/api/bookings?date=${
+              selectedDate.toISOString().split("T")[0]
+            }&room=${selectedRoom}`
+          );
+          const data = await response.json();
+
+          if (data.success && data.bookings) {
+            console.log("Fetched bookings from database:", data.bookings);
+
+            // Process bookings to determine slot status
+            data.bookings.forEach((booking) => {
+              // Create time slot string from start_time and end_time
+              const timeSlot = `${booking.start_time} - ${booking.end_time}`;
+              const status = booking.status.toLowerCase();
+
+              // Store the status for this time slot
+              slotStatuses[timeSlot] = status;
+
+              // Count queue position if it's pending
+              if (status === "pending") {
+                slotQueueCounts[timeSlot] = booking.queue_position || 1;
+              }
+            });
+          } else {
+            console.log("No bookings found or API error:", data);
+          }
+        } catch (error) {
+          console.error("Error fetching bookings:", error);
+        }
+
+        // Generate time slot displays
+        timeSlots.forEach((slot) => {
+          const slotDiv = document.createElement("div");
+          slotDiv.className =
+            "time-slot p-4 rounded-lg text-center font-semibold cursor-pointer";
+
+          // Get booking status from database or default to available
+          const status = slotStatuses[slot] || "available";
+          const queueCount = slotQueueCounts[slot] || 0;
+
+          console.log(
+            `Time slot ${slot} - Status: ${status}, Queue: ${queueCount}`
+          );
+
+          if (status === "available") {
+            slotDiv.className += " slot-green";
+            slotDiv.innerHTML = `
+                        <div class="text-lg">🟢</div>
+                        <div class="text-sm mt-1">${slot}</div>
+                        <div class="text-xs mt-1">Available</div>
+                    `;
+          } else if (status === "pending") {
+            slotDiv.className += " slot-yellow";
+            slotDiv.innerHTML = `
+                        <div class="text-lg">🟡</div>
+                        <div class="text-sm mt-1">${slot}</div>
+                        <div class="text-xs mt-1">Pending</div>
+                        <div class="text-xs mt-1 queue-indicator">
+                            ${
+                              queueCount > 0
+                                ? `Queue Position: ${queueCount}`
+                                : "Click to join queue"
+                            }
+                        </div>
+                    `;
+          } else if (status === "confirmed") {
+            slotDiv.className += " slot-red";
+            slotDiv.innerHTML = `
+                        <div class="text-lg">🔴</div>
+                        <div class="text-sm mt-1">${slot}</div>
+                        <div class="text-xs mt-1">Confirmed</div>
+                        <div class="text-xs mt-1">Not Available</div>
+                    `;
+          } else {
+            // Unknown status, treat as available
+            slotDiv.className += " slot-green";
+            slotDiv.innerHTML = `
+                        <div class="text-lg">🟢</div>
+                        <div class="text-sm mt-1">${slot}</div>
+                        <div class="text-xs mt-1">Available</div>
+                    `;
+          }
+
+          if (status !== "confirmed") {
+            slotDiv.onclick = () => openBookingModal(slot, status);
+          } else {
+            slotDiv.style.cursor = "not-allowed";
+          }
+
+          slotsContainer.appendChild(slotDiv);
+        });
+      }
+
+      async function openBookingModal(timeSlot, currentStatus) {
+        selectedTime = timeSlot;
+        currentSlotStatus = currentStatus;
+
+        // Update modal information
+        document.getElementById(
+          "modalRoom"
+        ).textContent = `Discussion Room ${selectedRoom}`;
+        document.getElementById("modalDate").textContent =
+          selectedDate.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+        document.getElementById("modalTime").textContent = timeSlot;
+
+        // Update status and show queue warning if needed
+        const queueWarning = document.getElementById("queueWarning");
+        const submitBtn = document.getElementById("submitBtn");
+
+        if (currentStatus === "pending") {
+          document.getElementById("modalStatus").textContent =
+            "Joining Queue (Slot is pending confirmation)";
+          queueWarning.style.display = "block";
+
+          // Fetch current bookings to get the queue position
+          try {
+            const response = await fetch(
+              `http://localhost:5000/api/bookings?date=${
+                selectedDate.toISOString().split("T")[0]
+              }&room=${selectedRoom}`
+            );
+            const data = await response.json();
+
+            let maxQueuePosition = 0;
+            if (data.success && data.bookings) {
+              const timeSlotInDb = `${timeSlot.split(" - ")[0]} - ${
+                timeSlot.split(" - ")[1]
+              }`;
+              data.bookings.forEach((booking) => {
+                const dbTimeSlot = `${booking.start_time} - ${booking.end_time}`;
+                if (
+                  dbTimeSlot === timeSlotInDb &&
+                  booking.status === "pending"
+                ) {
+                  maxQueuePosition = Math.max(
+                    maxQueuePosition,
+                    booking.queue_position || 0
+                  );
+                }
+              });
+            }
+
+            document.getElementById("queuePosition").textContent =
+              maxQueuePosition + 1;
+            submitBtn.textContent = "Join Queue";
+          } catch (error) {
+            console.error("Error fetching queue position:", error);
+            document.getElementById("queuePosition").textContent = "2";
+            submitBtn.textContent = "Join Queue";
+          }
+        } else {
+          document.getElementById("modalStatus").textContent =
+            "Available for Booking";
+          queueWarning.style.display = "none";
+          submitBtn.textContent = "Confirm Booking";
+        }
+
+        // Reset form
+        document.getElementById("bookingForm").reset();
+        document.getElementById("groupMembers").innerHTML = "";
+        groupMemberCount = 0;
+
+        // Add initial 3 group member fields
+        for (let i = 0; i < minGroupMembers; i++) {
+          addGroupMember();
+        }
+
+        // Show modal
+        document.getElementById("bookingModal").classList.add("active");
+      }
+
+      function closeModal() {
+        document.getElementById("bookingModal").classList.remove("active");
+      }
+
+      function addGroupMember() {
+        if (groupMemberCount >= maxGroupMembers) {
+          alert(`Maximum ${maxGroupMembers} group members allowed`);
+          return;
+        }
+
+        groupMemberCount++;
+        const memberDiv = document.createElement("div");
+        memberDiv.className = "flex gap-2 items-center";
+        memberDiv.innerHTML = `
+                <span class="text-sm font-medium text-gray-700 w-20">Member ${groupMemberCount}:</span>
+                <input type="text" required name="member${groupMemberCount}Name" placeholder="Name" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" required name="member${groupMemberCount}Id" placeholder="ID" class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                ${
+                  groupMemberCount > minGroupMembers
+                    ? `<button type="button" onclick="removeMember(this)" class="text-red-500 hover:text-red-700">❌</button>`
+                    : ""
+                }
+            `;
+        document.getElementById("groupMembers").appendChild(memberDiv);
+      }
+
+      function removeMember(button) {
+        button.parentElement.remove();
+        groupMemberCount--;
+        updateMemberNumbers();
+      }
+
+      function updateMemberNumbers() {
+        const members = document.querySelectorAll("#groupMembers > div");
+        members.forEach((member, index) => {
+          member.querySelector("span").textContent = `Member ${index + 1}:`;
+        });
+      }
+
+      function showNotification(type, data) {
+        // Store the notification type for later use when closing
+        currentNotificationType = type;
+
+        const modal = document.getElementById("notificationModal");
+        const header = document.getElementById("notificationHeader");
+        const body = document.getElementById("notificationBody");
+        const button = document.getElementById("notificationButton");
+
+        if (type === "booking-success") {
+          header.className =
+            "p-6 rounded-t-lg bg-gradient-to-r from-green-500 to-green-600 text-white";
+          header.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-5xl mb-3">✅</div>
+                        <h3 class="text-2xl font-bold">Booking Successful!</h3>
+                    </div>
+                `;
+          body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <p class="font-semibold text-green-800 mb-2">📋 Booking Reference: #${Math.random()
+                              .toString(36)
+                              .substr(2, 9)
+                              .toUpperCase()}</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p>📚 Room: ${data.room}</p>
+                                <p>📅 Date: ${data.date}</p>
+                                <p>⏰ Time: ${data.time}</p>
+                                <p>👤 Applicant: ${data.applicantName}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                            <p class="font-semibold text-amber-800 mb-2">⚠️ Important Reminders:</p>
+                            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                                <li>Arrive <strong>10 minutes before</strong> your slot time</li>
+                                <li>Bring your <strong>Student/Staff ID</strong> for verification</li>
+                                <li>If you're late, queued applicants may claim your slot</li>
+                                <li>Check-in at the library counter to confirm your booking</li>
+                            </ul>
+                        </div>
+
+                        <div class="text-center text-sm text-gray-600">
+                            <p>📧 A confirmation email has been sent to ${
+                              data.email
+                            }</p>
+                        </div>
+                    </div>
+                `;
+          button.className =
+            "w-full py-3 rounded-lg font-semibold transition-colors bg-green-500 text-white hover:bg-green-600";
+          button.textContent = "Great, I understand!";
+        } else if (type === "queue-success") {
+          header.className =
+            "p-6 rounded-t-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-white";
+          header.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-5xl mb-3">🟡</div>
+                        <h3 class="text-2xl font-bold">Added to Queue!</h3>
+                    </div>
+                `;
+          body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                            <p class="font-semibold text-yellow-800 mb-2">📋 Queue Reference: #${Math.random()
+                              .toString(36)
+                              .substr(2, 9)
+                              .toUpperCase()}</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p>📚 Room: ${data.room}</p>
+                                <p>📅 Date: ${data.date}</p>
+                                <p>⏰ Time: ${data.time}</p>
+                                <p>👤 Applicant: ${data.applicantName}</p>
+                                <p class="font-bold text-lg mt-2 text-yellow-800">Queue Position: #${
+                                  data.queuePosition
+                                }</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <p class="font-semibold text-blue-800 mb-2">ℹ️ How the Queue Works:</p>
+                            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                                <li>You're <strong>#${
+                                  data.queuePosition
+                                } in line</strong> for this slot</li>
+                                <li>If the current booking holder doesn't arrive within <strong>10 minutes</strong>, you'll be notified</li>
+                                <li>Please be at the library <strong>5 minutes before</strong> the slot time</li>
+                                <li>First-come, first-served for queued applicants</li>
+                            </ul>
+                        </div>
+
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600 mb-2">📧 Queue notification sent to ${
+                              data.email
+                            }</p>
+                            <p class="text-xs text-gray-500">You'll receive an SMS/Email if the slot becomes available</p>
+                        </div>
+                    </div>
+                `;
+          button.className =
+            "w-full py-3 rounded-lg font-semibold transition-colors bg-yellow-500 text-white hover:bg-yellow-600";
+          button.textContent = "Got it, I'll be ready!";
+        } else if (type === "multiple-bookings-error") {
+          header.className =
+            "p-6 rounded-t-lg bg-gradient-to-r from-red-500 to-red-600 text-white";
+          header.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-5xl mb-3">⚠️</div>
+                        <h3 class="text-2xl font-bold">Multiple Bookings Not Allowed</h3>
+                    </div>
+                `;
+          body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <p class="font-semibold text-red-800 mb-2">You already have a booking on this date!</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p><strong>Existing Booking:</strong></p>
+                                <p>📅 Date: ${data.selectedDate}</p>
+                                <p>⏰ Time: ${data.existingTimeSlot}</p>
+                                <p>🏢 Room: Discussion Room ${data.existingBooking.room_id}</p>
+                                <p>📊 Status: ${data.existingBooking.status}</p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <p class="font-semibold text-blue-800 mb-2">Booking Policy:</p>
+                            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                                <li>Each user can only book <strong>one slot per date</strong></li>
+                                <li>You cannot make multiple requests for the same date</li>
+                                <li>Please cancel your existing booking if you need a different time slot</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+          button.className =
+            "w-full py-3 rounded-lg font-semibold transition-colors bg-red-500 text-white hover:bg-red-600";
+          button.textContent = "I Understand";
+        } else if (type === "duplicate-slot-error") {
+          header.className =
+            "p-6 rounded-t-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white";
+          header.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-5xl mb-3">🔒</div>
+                        <h3 class="text-2xl font-bold">Duplicate Booking Not Allowed</h3>
+                    </div>
+                `;
+          body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                            <p class="font-semibold text-orange-800 mb-2">You already have a booking for this time slot!</p>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <p>⏰ Time: ${data.timeSlot}</p>
+                                <p>🏢 Room: Discussion Room ${data.room}</p>
+                                <p>📅 Date: ${data.selectedDate}</p>
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <p class="font-semibold text-blue-800 mb-2">What this means:</p>
+                            <ul class="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                                <li>You <strong>cannot join the queue</strong> for a slot you've already booked</li>
+                                <li>Each booking is unique to you</li>
+                                <li>If you need to cancel, please contact the library admin</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+          button.className =
+            "w-full py-3 rounded-lg font-semibold transition-colors bg-orange-500 text-white hover:bg-orange-600";
+          button.textContent = "Understood";
+        } else if (type === "booking-error") {
+          header.className =
+            "p-6 rounded-t-lg bg-gradient-to-r from-red-500 to-red-600 text-white";
+          header.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-5xl mb-3">❌</div>
+                        <h3 class="text-2xl font-bold">Booking Failed</h3>
+                    </div>
+                `;
+          body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <p class="font-semibold text-red-800 mb-2">Unable to complete your booking</p>
+                            <p class="text-sm text-gray-700">${
+                              data.message ||
+                              "An error occurred while processing your booking."
+                            }</p>
+                        </div>
+                    </div>
+                `;
+          button.className =
+            "w-full py-3 rounded-lg font-semibold transition-colors bg-red-500 text-white hover:bg-red-600";
+          button.textContent = "Try Again";
+        }
+
+        // Check if any other modals are currently open
+        const otherModals = ["bookingModal"];
+        let maxZIndex = 5000;
+
+        otherModals.forEach((modalId) => {
+          const modalElement = document.getElementById(modalId);
+          if (modalElement && modalElement.classList.contains("active")) {
+            const currentZIndex =
+              parseInt(window.getComputedStyle(modalElement).zIndex) || 0;
+            maxZIndex = Math.max(maxZIndex, currentZIndex + 1000);
+          }
+        });
+
+        // Set the notification modal to appear on top
+        modal.style.zIndex = maxZIndex;
+
+        modal.classList.add("active");
+      }
+
+      function closeNotificationModal() {
+        // Close the modal
+        document.getElementById("notificationModal").classList.remove("active");
+
+        // Reset the notification type
+        currentNotificationType = null;
+
+        // Reset z-index
+        document.getElementById("notificationModal").style.zIndex = "5000";
+      }
+
+      // Optimized function to update a single slot locally without fetching from database
+      function updateSlotLocally(timeSlot, status, queuePosition) {
+        const slotsContainer = document.getElementById("timeSlots");
+        const slotDivs = slotsContainer.getElementsByClassName("time-slot");
+
+        // Find the matching time slot
+        for (let div of slotDivs) {
+          const slotText = div.querySelector(".text-sm.mt-1").textContent;
+          if (slotText === timeSlot) {
+            // Update the slot with new status
+            div.className =
+              "time-slot p-4 rounded-lg text-center font-semibold";
+
+            if (status === "pending") {
+              div.className += " slot-yellow";
+              div.innerHTML = `
+                            <div class="text-lg">🟡</div>
+                            <div class="text-sm mt-1">${timeSlot}</div>
+                            <div class="text-xs mt-1">Pending</div>
+                            <div class="text-xs mt-1 queue-indicator">
+                                ${
+                                  queuePosition > 0
+                                    ? `Queue Position: ${queuePosition}`
+                                    : "Click to join queue"
+                                }
+                            </div>
+                        `;
+              div.onclick = () => openBookingModal(timeSlot, "pending");
+            }
+
+            console.log(`Updated slot ${timeSlot} to ${status} locally`);
+            break;
+          }
+        }
+      }
+
+      // Handle booking form submission
+      document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("bookingForm");
+  const submitBtn = document.getElementById("submitBtn");
+
+  // 🚫 Disable native submit completely
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  });
+
+  submitBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log("🚫 FORM SUBMIT FULLY CONTROLLED");
+
+    // ---------- VALIDATION ----------
+    if (groupMemberCount < minGroupMembers) {
+      document.getElementById("memberError").style.display = "block";
+      return;
+    }
+    document.getElementById("memberError").style.display = "none";
+
+    const formData = new FormData(form);
+    const studentId = formData.get("applicantId");
+    const applicantName = formData.get("applicantName");
+    const date = selectedDate.toISOString().split("T")[0];
+
+    try {
+      // ---------- CHECK SAME DAY BOOKING ----------
+      const checkResponse = await fetch(
+        `http://localhost:5000/api/bookings/check-user?studentId=${studentId}&date=${date}`
+      );
+      const checkData = await checkResponse.json();
+
+      if (checkData.success && checkData.hasBookings) {
+        showNotification("multiple-bookings-error", {
+          existingBooking: checkData.bookings[0],
+          selectedDate: selectedDate.toDateString(),
+        });
+        return;
+      }
+
+      // ---------- BUILD PAYLOAD ----------
+      const bookingData = {
+        room: selectedRoom,
+        date,
+        time: selectedTime,
+        applicant: {
+          name: applicantName,
+          id: studentId,
+          email: formData.get("applicantEmail"),
+          phone: formData.get("applicantPhone"),
+        },
+        members: [],
+      };
+
+      for (let i = 1; i <= groupMemberCount; i++) {
+        bookingData.members.push({
+          name: formData.get(`member${i}Name`),
+          id: formData.get(`member${i}Id`),
+        });
+      }
+
+      // ---------- SUBMIT ----------
+      const response = await fetch("http://localhost:5000/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        showNotification("booking-error", {
+          message: result.message || "Booking failed",
+        });
+        return;
+      }
+
+      updateSlotLocally(
+        selectedTime,
+        "pending",
+        result.queuePosition || 1
+      );
+
+      showNotification(
+        result.queuePosition ? "queue-success" : "booking-success",
+        {
+          room: `Discussion Room ${selectedRoom}`,
+          date: selectedDate.toDateString(),
+          time: selectedTime,
+          queuePosition: result.queuePosition,
+        }
+      );
+
+      // close modal AFTER everything
+      setTimeout(() => closeModal(), 0);
+
+    } catch (err) {
+      console.error("❌ Network error:", err);
+      showNotification("booking-error", {
+        message: "Server not reachable",
+      });
+    }
+  });
+
+  // ✅ Safe click-outside handlers
+  document.getElementById("notificationModal")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeNotificationModal();
+  });
+
+  document.getElementById("bookingModal")?.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+});
+
+    </script>
+  </body>
+</html>
