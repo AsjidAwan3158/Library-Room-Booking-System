@@ -954,7 +954,7 @@
             adminSelectedRoom
           );
           const response = await fetch(
-            `http://localhost:5000/api/bookings?date=${
+            `/api/bookings?date=${
               adminSelectedDate.toISOString().split("T")[0]
             }&room=${adminSelectedRoom}`
           );
@@ -1027,7 +1027,7 @@
         try {
           // Fetch all bookings for the selected date and room
           const response = await fetch(
-            `http://localhost:5000/api/bookings?date=${
+            `/api/bookings?date=${
               adminSelectedDate.toISOString().split("T")[0]
             }&room=${adminSelectedRoom}`
           );
@@ -1053,7 +1053,7 @@
           for (const booking of slotBookings) {
             try {
               const detailResponse = await fetch(
-                `http://localhost:5000/api/bookings/admin/${booking.id}`
+                `/api/bookings/admin/${booking.id}`
               );
               const detailData = await detailResponse.json();
 
@@ -1366,7 +1366,7 @@
         try {
           console.log("✅ Confirming booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${bookingId}/status`,
+            `/api/bookings/admin/${bookingId}/status`,
             {
               method: "PUT",
               headers: {
@@ -1397,7 +1397,7 @@
         try {
           console.log("❌ Rejecting booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${bookingId}`,
+            `/api/bookings/admin/${bookingId}`,
             {
               method: "DELETE",
             }
@@ -1430,7 +1430,7 @@
         try {
           console.log("⚠️ Cancelling booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${bookingId}/status`,
+            `/api/bookings/admin/${bookingId}/status`,
             {
               method: "PUT",
               headers: {
@@ -1923,7 +1923,7 @@
         try {
           console.log("✅ Confirming booking:", selectedBookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${selectedBookingId}/status`,
+            `/api/bookings/admin/${selectedBookingId}/status`,
             {
               method: "PUT",
               headers: {
@@ -2154,7 +2154,7 @@
           try {
             console.log("⚠️ Cancelling booking:", selectedBookingId);
             const response = await fetch(
-              `http://localhost:5000/api/bookings/admin/${selectedBookingId}/status`,
+              `/api/bookings/admin/${selectedBookingId}/status`,
               {
                 method: "PUT",
                 headers: {
@@ -2313,7 +2313,7 @@
         try {
           console.log("📊 Fetching all bookings from database...");
           const response = await fetch(
-            "http://localhost:5000/api/admin/all"
+            "/api/admin/all"
           );
           const data = await response.json();
 
@@ -2544,7 +2544,7 @@
         try {
           console.log("✅ Confirming booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${bookingId}/status`,
+            `/api/bookings/admin/${bookingId}/status`,
             {
               method: "PUT",
               headers: {
@@ -2573,7 +2573,7 @@
         try {
           console.log("❌ Rejecting booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/admin/${bookingId}`,
+            `/api/admin/${bookingId}`,
             {
               method: "DELETE",
             }
@@ -2604,7 +2604,7 @@
         try {
           console.log("⚠️ Cancelling booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${bookingId}/status`,
+            `/api/bookings/admin/${bookingId}/status`,
             {
               method: "PUT",
               headers: {
@@ -2633,7 +2633,7 @@
         try {
           console.log("👁️ Viewing booking:", bookingId);
           const response = await fetch(
-            `http://localhost:5000/api/bookings/admin/${bookingId}`
+            `/api/bookings/admin/${bookingId}`
           );
           const data = await response.json();
 

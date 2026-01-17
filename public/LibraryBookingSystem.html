@@ -735,7 +735,7 @@
 
           // Check if user has bookings on this date
           fetch(
-            `http://localhost:5000/api/bookings/check-user?studentId=${currentUserId}&date=${
+            `/api/bookings/check-user?studentId=${currentUserId}&date=${
               selectedDate.toISOString().split("T")[0]
             }`
           )
@@ -790,7 +790,7 @@
         try {
           // Fetch bookings from database
           const response = await fetch(
-            `http://localhost:5000/api/bookings?date=${
+            `/api/bookings?date=${
               selectedDate.toISOString().split("T")[0]
             }&room=${selectedRoom}`
           );
@@ -912,7 +912,7 @@
           // Fetch current bookings to get the queue position
           try {
             const response = await fetch(
-              `http://localhost:5000/api/bookings?date=${
+              `/api/bookings?date=${
                 selectedDate.toISOString().split("T")[0]
               }&room=${selectedRoom}`
             );
@@ -1298,7 +1298,7 @@
     try {
       // ---------- CHECK SAME DAY BOOKING ----------
       const checkResponse = await fetch(
-        `http://localhost:5000/api/bookings/check-user?studentId=${studentId}&date=${date}`
+        `/api/bookings/check-user?studentId=${studentId}&date=${date}`
       );
       const checkData = await checkResponse.json();
 
@@ -1332,7 +1332,7 @@
       }
 
       // ---------- SUBMIT ----------
-      const response = await fetch("http://localhost:5000/api/bookings", {
+      const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bookingData),
